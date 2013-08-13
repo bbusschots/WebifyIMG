@@ -4,6 +4,7 @@ use strict;
 use warnings;
 use Carp;
 use Config::Simple; # from CPAN - for reading config files
+use IO::CaptureOutput 'capture_exec'; # from CPAN - for executing shell commands
 
 # version info
 use version; our $VERSION = qv('0.1_2');
@@ -114,9 +115,85 @@ sub load{
     return $num_loaded;
 }
 
+#####-SUB-######################################################################
+# Type       : INSTANCE
+# Purpose    : Frame an image
+# Returns    : the image set object originally passed in
+# Arguments  : 1) an image set object
+#              2) OPTIONAL - a hashref of options:
+#                 colour - the colour to use for the frame (default #999999)
+#                 border - the width of the border in pixels (default 1)
+# Throws     : Croaks on invalid args, Carps on image processing error
+sub frame_simple{
+    my $self = shift;
+    my $images = shift;
+    my $opts = shift;
+    
+    # check we have valid args
+    unless($self && $images){ # need to look up isa
+        croak((caller 0)[3].'() - invalid arguments');
+    }
+    
+    # init options to defaults
+    my $colour = '#999999';
+    my $border = 1;
+    
+    # override with any passed options
+    if ($opts->{colour}) {
+        $colour = $colour = $opts->{colour};
+    }
+    if ($opts->{border}) {
+        $border = $opts->{border};
+    }
+    
+    # do the framing
+    
+}
+
 #
 # private helper functions
 #
+
+#####-SUB-######################################################################
+# Type       : INSTANCE (PRIVATE)
+# Purpose    : to execute a shell command - anything to STDOUT gets printed
+# Returns    : 1 if successfull, 0 otherwise
+# Arguments  : the string to execute
+# Throws     : Croaks on invalid args, carps if anything written to STDERR
+sub _exec{
+    my $self = shift;
+    my $command = shift;
+    
+    # validate args
+    unless($self &&  $command){
+        croak((caller 0)[3].'() - invalid arguments');
+    }
+    
+    # if we're debugging, just print the command that would be executed, and return success
+    if ($self->{debug}) {
+        $self->_debug('would execute: $command');
+        return 1;
+    }
+    
+    # do the shelling out
+    my ($stdout, $stderr, $success, $exit_code) = capture_exec($command);
+    
+    # if anything was written to stdout, print it
+    if ($stdout) {
+        print $stdout;
+    }
+    
+    # if anything was written to STDERR, carp about it
+    if ($stderr) {
+        carp((caller 0)[3]."() - $stderr");
+    }
+    
+    # return success or failure
+    if ($success) {
+        return 1;
+    }
+    return 0;
+}
 
 #####-SUB-######################################################################
 # Type       : INSTANCE (PRIVATE)
@@ -176,6 +253,8 @@ This module requires the following CPAN modules:
 =over
 
 =item * C<Config::Simple> - L<http://search.cpan.org/perldoc?Config%3A%3ASimple>
+
+=item * C<IO::CaptureOutput> - L<http://search.cpan.org/perldoc?IO%3A%3ACaptureOutput>
 
 =back
 
