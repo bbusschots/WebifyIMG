@@ -9,7 +9,7 @@ use lib::findbin; # from CPAN - to allow the script be run from any location
 use WebifyIMG;
 
 # version info
-use version; our $VERSION = qv('0.1_2');
+use version; our $VERSION = qv('0.1_3');
 
 my $description = <<'ENDDESC_SHORT';
 ================================================================================
@@ -112,7 +112,7 @@ if($options{help}){
 # --list
 if($options{list}){
     # loop through the list of operations and print each
-    print "Supported Operations:\n=====================\n";
+    print "\nSupported Operations:\n=====================\n";
     foreach my $operation (sort keys %{$OPERATIONS}){
         print "* $operation:\n";
         print "- Description: $OPERATIONS->{$operation}->{description}\n";
@@ -126,7 +126,7 @@ if($options{list}){
                 print "- Maximum Images Accepted: $OPERATIONS->{$operation}->{max_images}\n";
             }
         }
-        if(scalar @{$OPERATIONS->{$operation}->{options}}){
+        if(scalar keys %{$OPERATIONS->{$operation}->{options}}){
             my @text_options = ();
             foreach my $option (sort  keys %{$OPERATIONS->{$operation}->{options}}){
                 push @text_options, "--$option (default='$OPERATIONS->{$operation}->{options}->{$option}')";
@@ -209,7 +209,7 @@ if($operation->{min_images} && $operation->{max_images}){
 print "OK\n" if $verbose;
 
 # deal with options
-print "INFO - consolidating options (combinig specified options with defaults) ... " if $verbose;
+print 'INFO - consolidating options (combinig specified options with defaults) ... ' if $verbose;
 my $consolidated_options; # a hashref of options with defaults used for unspecified options
 foreach my $sup_opt (keys %{$operation->{options}}){
     if($options{$sup_opt}){
@@ -247,6 +247,9 @@ unless($debug || $options{yes}){
 # frame
 sub _frame{
     print "\nWOULD FRAME!\n";
+    
+    # to keep perlcritic happy
+    return 1;
 }
 
 #

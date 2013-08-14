@@ -12,7 +12,8 @@ use version; our $VERSION = qv('0.1_2');
 #
 # CONSTANTS
 #
-our $_DEFAULT_INI_LOCATION = '~/.WebifyIMG/WebifyIMG.ini';
+my $_DEFAULT_INI_LOCATION = '~/.WebifyIMG/WebifyIMG.ini';
+my $_CLASS = 'WebifyIMG';
 
 #####-SUB-######################################################################
 # Type       : CONSTRUCTOR (CLASS FUNCTION)
@@ -23,7 +24,7 @@ our $_DEFAULT_INI_LOCATION = '~/.WebifyIMG/WebifyIMG.ini';
 #                 configuration options.
 #              2) OPTIONAL - a boolean value to indicate whether or not to enter
 #                 debug mode.
-# Throws     : Carps in the case of file IO errors
+# Throws     : Carps in the case of file IO errors or invalid arguments
 # Notes      : All configuration options are initialised with their default
 #              values, then any values present in ~/.WebifyIMG/WebifyIMG.ini
 #              override the default values, and then finally the values in the
@@ -33,6 +34,11 @@ sub new{
     my $class = shift;
     my $config = shift;
     my $debug = shift;
+    
+    # validate args
+    unless($class && $class eq $_CLASS && $config){
+        croak((caller 0)[3].'() - invalid arguments');
+    }
 
     # create the instance with defaults
     my $instance = {
@@ -73,7 +79,7 @@ sub load{
     my $source = shift;
     
     # make sure we got valid arguments
-    unless($source){
+    unless($self && $self->isa($_CLASS) && $source){
         croak((caller 0)[3].'() - invalid arguments - no source passed');
     }
     
@@ -118,19 +124,19 @@ sub load{
 #####-SUB-######################################################################
 # Type       : INSTANCE
 # Purpose    : Frame an image
-# Returns    : the image set object originally passed in
-# Arguments  : 1) an image set object
+# Returns    : 1 if the operation was successful, 0 otherwise
+# Arguments  : 1) the path to the image to frame
 #              2) OPTIONAL - a hashref of options:
 #                 colour - the colour to use for the frame (default #999999)
 #                 border - the width of the border in pixels (default 1)
 # Throws     : Croaks on invalid args, Carps on image processing error
 sub frame_simple{
     my $self = shift;
-    my $images = shift;
+    my $image = shift;
     my $opts = shift;
     
     # check we have valid args
-    unless($self && $images){ # need to look up isa
+    unless($self && $self->isa($_CLASS) && $image){
         croak((caller 0)[3].'() - invalid arguments');
     }
     
@@ -148,6 +154,8 @@ sub frame_simple{
     
     # do the framing
     
+    # default to fail
+    return 0;
 }
 
 #
@@ -165,13 +173,13 @@ sub _exec{
     my $command = shift;
     
     # validate args
-    unless($self &&  $command){
+    unless($self && $self->isa($_CLASS) && $command){
         croak((caller 0)[3].'() - invalid arguments');
     }
     
     # if we're debugging, just print the command that would be executed, and return success
     if ($self->{debug}) {
-        $self->_debug('would execute: $command');
+        $self->_debug("would execute: $command");
         return 1;
     }
     
@@ -204,6 +212,11 @@ sub _exec{
 sub _debug{
     my $self = shift;
     my $message = shift;
+    
+    # validate args
+    unless($self && $self->isa($_CLASS) && defined $message){
+        croak((caller 0)[3].'() - invalid arguments');
+    }
     
     # print the message if in debug mode
     if($self->{debug}){
