@@ -7,9 +7,10 @@ use Data::Dumper; # for debugging
 use IO::Prompt; # from CPAN - for user input
 use lib::findbin; # from CPAN - to allow the script be run from any location
 use WebifyIMG;
+use WebifyIMG::ImageSet;
 
 # version info
-use version; our $VERSION = qv('0.1_3');
+use version; our $VERSION = qv('0.1_4');
 
 my $description = <<'ENDDESC_SHORT';
 ================================================================================
@@ -40,6 +41,7 @@ Global Optional Flags:
                     files. (Implies --verbose)
  -v, --verbose      Verbose output.
  -y, --yes          Skip the warning message before altering an image.
+ -q, --quiet        Supress progress messages from the WebifyIMG library.
 
 Other Flags:
 ============
@@ -82,6 +84,7 @@ unless(GetOptions(\%options,
         'debug|d',
         'help|h',
         'list|l',
+        'quiet|q',
         'verbose|v',
         'version',
 )){
@@ -136,6 +139,7 @@ if($options{list}){
             print "\n";
         }
     }
+    print "\n";
     exit 0;
 }
 
@@ -237,6 +241,20 @@ unless($debug || $options{yes}){
     }
 }
 
+#
+# Initialise needed Objects
+#
+
+# create a WebifyIMG image processor
+my $webify_cfg = {};
+if($options{quiet}){
+    $webify_cfg->{quiet} = 1;
+}
+my $webify = WebifyIMG->new($webify_cfg, $debug);
+
+# create a Webify image set with the processor
+my $image_set = WebifyIMG::ImageSet->new($webify, @images);
+
 # call the function to do the actual work
 &{$operation->{function}};
 
@@ -246,7 +264,7 @@ unless($debug || $options{yes}){
 
 # frame
 sub _frame{
-    print "\nWOULD FRAME!\n";
+    $image_set->frame_simple(\%options);
     
     # to keep perlcritic happy
     return 1;

@@ -5,7 +5,7 @@ use warnings;
 use Carp;
 
 # version info
-use version; our $VERSION = qv('0.1_1');
+use version; our $VERSION = qv('0.1_2');
 
 #
 # CONSTANTS
@@ -87,6 +87,77 @@ sub add_images{
     
     # return self
     return $self;
+}
+
+#
+# Chainable Image Processing Functions
+#
+
+#####-SUB-######################################################################
+# Type       : INSTANCE
+# Purpose    : Add a simple coloured frame to the images in this set.
+# Returns    : self (to allow chaining of operations)
+# Arguments  : OPTIONAL - a hashref with options
+# Throws     : Croaks on invalid arguments
+# See Also   : Valid options and defaults defined by WebifyIMG::frame_simple()
+sub frame_simple{
+    my $self = shift;
+    my $opts = shift;
+    return $self->_process(\&WebifyIMG::frame_simple, $opts);
+}
+
+#
+# Private helper functions
+#
+
+#####-SUB-######################################################################
+# Type       : INSTANCE (PRIVATE)
+# Purpose    : execute an image processing function on a set of images
+# Returns    : self (to facilitate chaining)
+# Arguments  : 1) a coderef to the function to execute on all the images. The
+#              function must be an instance function of WebifyIMG.
+#              2) OPTIONAL - an options hashref with valid options for what ever
+#              function is being invoked.
+# Throws     : Croaks on invalid args, Called functions Carps on shell errors
+# Notes      : errors processing images are reported as coming form the caller
+#              of this private utility function.
+sub _process{
+    my $self = shift;
+    my $sub = shift;
+    my $opts = shift;
+    
+    #
+    # validate args
+    #
+    
+    # make sure we are being called as an instance function
+    unless($self && $self->isa($_CLASS)){
+        croak((caller 0)[3].'() - not called as an instance function');
+    }
+    
+    # make sure we really did get a code ref as the second argument
+    unless($sub && (ref $sub) eq 'CODE'){
+        croak((caller 0)[3].'() - did not receive needed code ref (called by '.(caller 1)[3].')');
+    }
+    
+    # if a third argument was passed, make sure it really is a hashref
+    if(defined $opts){
+        unless((ref $opts) eq 'HASH'){
+            croak((caller 0)[3].'() - options argument was not a hashref (called by '.(caller 1)[3].')');
+        }
+    }
+    
+    #
+    # call the provided function on each image in self
+    #
+    foreach my $image (@{$self->{images}}){
+        unless(&{$sub}($self->{processor}, $image, $opts)){
+            carp((caller 1)[3]."() - an error occoured processing $image");
+        }
+    }
+    
+    # finally return self (to facilitate chaining)
+    return $self
 }
 
 1; # because Perl is a bit special!

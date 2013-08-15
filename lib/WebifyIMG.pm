@@ -5,9 +5,10 @@ use warnings;
 use Carp;
 use Config::Simple; # from CPAN - for reading config files
 use IO::CaptureOutput 'capture_exec'; # from CPAN - for executing shell commands
+use String::ShellQuote; # from CPAN - for preparing strings for use in a shell
 
 # version info
-use version; our $VERSION = qv('0.1_2');
+use version; our $VERSION = qv('0.1_3');
 
 #
 # CONSTANTS
@@ -64,13 +65,20 @@ sub new{
         $instance->load($config);
     }
     
+    # assemble and save binary paths into the new instance
+    
+    
     # return assembled instance
     return $instance;
 }
 
+#
+# Accessor methods
+#
+
 #####-SUB-######################################################################
 # Type       : INSTANCE
-# Purpose    : Load configuration values from an ini file or hashref.
+# Purpose    : Load configuration values from an ini file or hashref
 # Returns    : The number of variables loaded from the file or hashref
 # Arguments  : 1) the file or the hashref to load configuation variables from.
 # Throws     : Croaks if no argument passed, Croaks on File IO error
@@ -123,6 +131,40 @@ sub load{
 
 #####-SUB-######################################################################
 # Type       : INSTANCE
+# Purpose    : Return the full path to the mogrify command (based on
+#              imagemagick_bin_path config option).
+# Returns    : The path to mogrify as a string
+# Arguments  : NONE
+# Throws     : Croaks on invalid args
+sub bin_mogrify{
+    my $self = shift;
+    unless($self && $self->isa($_CLASS)){
+        croak((caller 0)[3].'() - invalid arguments');
+    }
+    return $self->{imagemagick_bin_path}.'mogrify';
+}
+
+#####-SUB-######################################################################
+# Type       : INSTANCE
+# Purpose    : Return the full path to the convery command (based on
+#              imagemagick_bin_path config option).
+# Returns    : The path to convert as a string
+# Arguments  : NONE
+# Throws     : Croaks on invalid args
+sub bin_convert{
+    my $self = shift;
+    unless($self && $self->isa($_CLASS)){
+        croak((caller 0)[3].'() - invalid arguments');
+    }
+    return $self->{imagemagick_bin_path}.'convert';
+}
+
+#
+# Image processing functions
+#
+
+#####-SUB-######################################################################
+# Type       : INSTANCE
 # Purpose    : Frame an image
 # Returns    : 1 if the operation was successful, 0 otherwise
 # Arguments  : 1) the path to the image to frame
@@ -148,11 +190,20 @@ sub frame_simple{
     if ($opts->{colour}) {
         $colour = $colour = $opts->{colour};
     }
-    if ($opts->{border}) {
+    if ($opts->{border} && $opts->{border} =~ m/^\d+$/sx) {
         $border = $opts->{border};
     }
     
-    # do the framing
+    # prepare the arguments for use in the shell
+    my $image_q = shell_quote($image);
+    my $border_q = shell_quote($border.q{x}.$border); # convert to geomerty e.g. 1x1
+    my $colour_q = shell_quote($colour);
+    
+    # shell out to ImageMagick
+    if($self->_exec($self->bin_mogrify().qq{ -border $border_q -bordercolor $colour_q $image_q})){
+        $self->_report("Framed $image (border=${border}px, colour=$colour)");
+        return 1;
+    }
     
     # default to fail
     return 0;
@@ -227,6 +278,25 @@ sub _debug{
     return 1;
 }
 
+#####-SUB-######################################################################
+# Type       : INSTANCE (PRIVATE)
+# Purpose    : To report results of image processing functions (unless option
+#              quiet is set to a true value).
+# Returns    : Always returns 1
+# Arguments  : The message to print
+# Throws     : Croaks on invalid arguments
+sub _report{
+    my $self = shift;
+    my $message = shift;
+    unless($self && $self->isa($_CLASS) && $message){
+        croak((caller 0)[3].'() - invalid arguments');
+    }
+    unless($self->{quiet}){
+        print "WebifyIMG - $message\n";
+    }
+    return 1; # to keep perlcritic happy
+}
+
 1; # because Perl is a bit special!
 
 __END__
@@ -268,6 +338,8 @@ This module requires the following CPAN modules:
 =item * C<Config::Simple> - L<http://search.cpan.org/perldoc?Config%3A%3ASimple>
 
 =item * C<IO::CaptureOutput> - L<http://search.cpan.org/perldoc?IO%3A%3ACaptureOutput>
+
+=item * C<String::ShellQuote> - L<http://search.cpan.org/perldoc?String%3A%3AShellQuote>
 
 =back
 
