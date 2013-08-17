@@ -25,13 +25,15 @@ my $description = <<'ENDDESC_SHORT';
 
 Synopsis:
 =========
- Print List of Operations:     webify-cli.pl --list
+ Print List of Operations:      webify-cli.pl --list
 
- Print documentation:          webify-cli.pl -h|--help
+ Print documentation:           webify-cli.pl -h|--help
 
- Print Version Number:         webify-cli.pl --version
+ Print Version Number:          webify-cli.pl --version
+ 
+ Print Loaded Config Values:    webify-cli.pl --dump-config
 
- Process one or more Images:   webify-cli.pl 'operation' [files] [flags]
+ Process one or more Images:    webify-cli.pl 'operation' [files] [flags]
 
 ENDDESC_SHORT
 my $description_extra = <<'ENDDESC_EXTRA';
@@ -39,9 +41,9 @@ Global Optional Flags:
 ======================
  -d, --debug        Enter Debug mode - no changes will be made to any image
                     files. (Implies --verbose)
+ -q, --quiet        Supress progress messages from the WebifyIMG library.
  -v, --verbose      Verbose output.
  -y, --yes          Skip the warning message before altering an image.
- -q, --quiet        Supress progress messages from the WebifyIMG library.
 
 Other Flags:
 ============
@@ -82,6 +84,7 @@ unless(GetOptions(\%options,
         'border|b=i',
         'colour|color|c=s',
         'debug|d',
+        'dump-config',
         'help|h',
         'list|l',
         'quiet|q',
@@ -105,6 +108,19 @@ if($debug || $options{verbose}){
 #
 # Deal with special modes of operation
 #
+
+# --dump-config
+if($options{'dump-config'}){
+    my $webify = WebifyIMG->new();
+    print "\n";
+    print "Loaded Options:\n===============\n";
+    foreach my $opt (sort keys %{$webify}){
+        print "$opt=$webify->{$opt}\n";
+    }
+    print "\nSet values in $WebifyIMG::_DEFAULT_INI_LOCATION\nOptions are set one per line (lines starting with # are ignored), e.g.\n";
+    print "url: www.domain.com)\n\n";
+    exit 0;
+}
 
 # --help
 if($options{help}){

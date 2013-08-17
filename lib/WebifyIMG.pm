@@ -13,7 +13,7 @@ use version; our $VERSION = qv('0.1_3');
 #
 # CONSTANTS
 #
-my $_DEFAULT_INI_LOCATION = '~/.WebifyIMG/WebifyIMG.ini';
+our $_DEFAULT_INI_LOCATION = $ENV{HOME}.'/.WebifyIMG/WebifyIMG.cfg';
 my $_CLASS = 'WebifyIMG';
 
 #####-SUB-######################################################################
@@ -37,7 +37,7 @@ sub new{
     my $debug = shift;
     
     # validate args
-    unless($class && $class eq $_CLASS && $config){
+    unless($class && $class eq $_CLASS){
         croak((caller 0)[3].'() - invalid arguments');
     }
 
@@ -45,7 +45,7 @@ sub new{
     my $instance = {
         imagemagick_bin_path => '/opt/local/bin/',
         license_icon => '~/.WebifyIMG/license.png',
-        url => 'www.bartb.ie',
+        url => 'www.domain.com',
     };
     if($debug){
         $instance->{debug} = 1;
@@ -64,9 +64,6 @@ sub new{
     if($config){
         $instance->load($config);
     }
-    
-    # assemble and save binary paths into the new instance
-    
     
     # return assembled instance
     return $instance;
