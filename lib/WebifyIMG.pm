@@ -44,7 +44,8 @@ sub new{
     # create the instance with defaults
     my $instance = {
         imagemagick_bin_path => '/opt/local/bin/',
-        license_icon => '~/.WebifyIMG/license.png',
+        font_caps => $ENV{HOME}.'/.WebifyIMG/capsFont.ttf',
+        license_icon => $ENV{HOME}.'/.WebifyIMG/license.png',
         url => 'www.domain.com',
     };
     if($debug){
@@ -64,6 +65,10 @@ sub new{
     if($config){
         $instance->load($config);
     }
+    
+    #
+    # TO DO - validate all file paths loaded
+    #
     
     # return assembled instance
     return $instance;
@@ -143,7 +148,7 @@ sub bin_mogrify{
 
 #####-SUB-######################################################################
 # Type       : INSTANCE
-# Purpose    : Return the full path to the convery command (based on
+# Purpose    : Return the full path to the convert command (based on
 #              imagemagick_bin_path config option).
 # Returns    : The path to convert as a string
 # Arguments  : NONE
@@ -156,20 +161,35 @@ sub bin_convert{
     return $self->{imagemagick_bin_path}.'convert';
 }
 
+#####-SUB-######################################################################
+# Type       : INSTANCE
+# Purpose    : Return the full path to the composite command (based on
+#              imagemagick_bin_path config option).
+# Returns    : The path to convert as a string
+# Arguments  : NONE
+# Throws     : Croaks on invalid args
+sub bin_composite{
+    my $self = shift;
+    unless($self && $self->isa($_CLASS)){
+        croak((caller 0)[3].'() - invalid arguments');
+    }
+    return $self->{imagemagick_bin_path}.'composite';
+}
+
 #
 # Image processing functions
 #
 
 #####-SUB-######################################################################
 # Type       : INSTANCE
-# Purpose    : Frame an image
+# Purpose    : Add a border around an image
 # Returns    : 1 if the operation was successful, 0 otherwise
-# Arguments  : 1) the path to the image to frame
+# Arguments  : 1) the path to the image to add the border to
 #              2) OPTIONAL - a hashref of options:
-#                 colour - the colour to use for the frame (default #999999)
+#                 colour - the colour to use for the border (default #999999)
 #                 border - the width of the border in pixels (default 1)
-# Throws     : Croaks on invalid args, Carps on image processing error
-sub frame_simple{
+# Throws     : Croaks on invalid args
+sub add_border{
     my $self = shift;
     my $image = shift;
     my $opts = shift;
@@ -185,7 +205,7 @@ sub frame_simple{
     
     # override with any passed options
     if ($opts->{colour}) {
-        $colour = $colour = $opts->{colour};
+        $colour = $opts->{colour};
     }
     if ($opts->{border} && $opts->{border} =~ m/^\d+$/sx) {
         $border = $opts->{border};
@@ -198,11 +218,100 @@ sub frame_simple{
     
     # shell out to ImageMagick
     if($self->_exec($self->bin_mogrify().qq{ -border $border_q -bordercolor $colour_q $image_q})){
-        $self->_report("Framed $image (border=${border}px, colour=$colour)");
+        $self->_report("$image: added border (thickness=${border}px, colour=$colour)");
         return 1;
     }
     
-    # default to fail
+    # if we get here we failed to add the border
+    $self->_warn("$image: failed to add border");
+    return 0;
+}
+
+#####-SUB-######################################################################
+# Type       : INSTANCE
+# Purpose    : Insert license icon into the lower left of the passed image
+# Returns    : 1 if the operation was successful, 0 otherwise
+# Arguments  : 1) the path to the image to add the border to
+#              2) OPTIONAL - a hashref of options:
+#                 opacity - the opacity to add the license icon with as an
+#                           integer percentage (default 50)
+# Throws     : Croaks on invalid args
+sub insert_license_icon{
+    my $self = shift;
+    my $image = shift;
+    my $opts = shift;
+    
+    # validate args
+    unless($self && $self->isa($_CLASS) && $image){
+        croak((caller 0)[3].'() - invalid arguments');
+    }
+    
+    # init options to defaults
+    my $opacity = 50;
+    
+    # override with any valid passed options
+    if($opts->{opacity} && $opts->{opacity} =~ m/^\d+$/sx && $opts->{opacity} <= 100){
+        $opacity = $opts->{opacity};
+    }
+    
+    # prepare the arguments for use in the shell
+    my $image_q = shell_quote($image);
+    my $icon_q = shell_quote($self->{license_icon});
+    
+    # shell out to ImageMagick
+    if($self->_exec($self->bin_composite().qq{ -watermark $opacity -gravity southwest -geometry +5+5 $icon_q $image_q $image_q})){
+        $self->_report("$image: inserted license icon (opacity=${opacity}%)");
+        return 1;
+    }
+    
+    # if we get here we failed to insert the icon
+    $self->_warn("$image: failed to insert license icon");
+    return 0;
+}
+
+#####-SUB-######################################################################
+# Type       : INSTANCE
+# Purpose    : Insert URL in white into the lower-right of the given image
+# Returns    : 1 if the operation was successful, 0 otherwise
+# Arguments  : 1) the path to the image to insert the URL into
+#              2) OPTIONAL - a hashref of options:
+#                 opacity - the opacity of the URL text as an integer
+#                            percentage (default 50)
+# Throws     : Croaks on invalid args
+# Notes      : TO DO - find a nice way to take an RGB colour as an argument
+sub insert_url{
+    my $self = shift;
+    my $image = shift;
+    my $opts = shift;
+    
+    # validate args
+    unless($self && $self->isa($_CLASS) && $image){
+        croak((caller 0)[3].'() - invalid arguments');
+    }
+    
+    # init options to defaults
+    my $opacity = 50;
+    
+    # override with any valid passed options
+    if($opts->{opacity} && $opts->{opacity} =~ m/^\d+$/sx && $opts->{opacity} <= 100){
+        $opacity = $opts->{opacity};
+    }
+    # TO DO - find a way to nicely take RGB colour input
+    
+    # prepare the arguments for use in the shell
+    my $opacity_d = $opacity/100; # convert to a decimal
+    my $image_q = shell_quote($image);
+    my $font_q = shell_quote($self->{font_caps});
+    my $url_q = shell_quote($self->{url});
+    
+    # shell out to ImageMagick
+    if($self->_exec($self->bin_mogrify().qq{ -fill 'rgba(255, 255, 255, $opacity_d)' -pointsize 14 -font $font_q -gravity southeast -annotate +7+4 $url_q $image_q})){
+        $self->_report("$image: inserted URL (opacity=${opacity}%)");
+        return 1;
+    }
+    
+    # if we get here we failed to insert the icon
+    $self->_warn("$image: failed to insert URL");
     return 0;
 }
 
@@ -292,6 +401,26 @@ sub _report{
         print "WebifyIMG - $message\n";
     }
     return 1; # to keep perlcritic happy
+}
+
+#####-SUB-######################################################################
+# Type       : INSTANCE (PRIVATE)
+# Purpose    : Print a warning on image processing error.
+# Returns    : always returns 1.
+# Arguments  : the warning message to print.
+# Throws     : Croaks on invalid args.
+# Notes      : the warning is reported as coming from the calling function.
+sub _warn{
+    my $self = shift;
+    my $message = shift;
+    
+    # validate args
+    unless($self && $self->isa($_CLASS)){
+        carp("WebifyIMG - $message (".(caller 1)[3].")\n");
+    }
+    
+    # always return true to keep perlcritic happy
+    return 1;
 }
 
 1; # because Perl is a bit special!

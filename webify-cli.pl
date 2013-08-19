@@ -25,15 +25,15 @@ my $description = <<'ENDDESC_SHORT';
 
 Synopsis:
 =========
+ Process one or more Images:    webify-cli.pl 'operation' [files] [flags]
+
  Print List of Operations:      webify-cli.pl --list
 
- Print documentation:           webify-cli.pl -h|--help
+ Print Documentation:           webify-cli.pl -h|--help
 
  Print Version Number:          webify-cli.pl --version
  
  Print Loaded Config Values:    webify-cli.pl --dump-config
-
- Process one or more Images:    webify-cli.pl 'operation' [files] [flags]
 
 ENDDESC_SHORT
 my $description_extra = <<'ENDDESC_EXTRA';
@@ -51,7 +51,8 @@ Other Flags:
  what flags use --list). The following flags are possible:
  -b, --border       The width of a border in pixels (must be integer)
  -c, --colour       Specify a colour in some format accepted by ImageMagick.
-     --color        Alias for --colour for Americas :)
+     --color        Alias for --colour for Americans :)
+ -o, --opacity      The percentage opacity (as an integer) of the inserted item
 
 Returns Codes:
 ==============
@@ -65,14 +66,19 @@ my $description_extended = $description.$description_extra;
 # Assemble the list of valid operations
 #
 my $OPERATIONS = {
-    'frame' => {
+    frame_simple => {
         min_images => 1,
         options => {
             colour => '#999999',
             border => 1,
+            opacity => 50,
         },
-        description => 'Adds a basic border to the specified images - defaults to 1px #999999',
-        function => \&_frame,
+        description => 'Inserts URL & license icon, then adds border (defaults to 1px #999999 border and semi-transparent URL & icon)',
+        function => sub{
+            my $images = shift;
+            my $opts = shift;
+            $images->add_border($opts)->insert_license_icon($opts)->insert_url($opts);
+        },
     },
 };
 
@@ -87,6 +93,7 @@ unless(GetOptions(\%options,
         'dump-config',
         'help|h',
         'list|l',
+        'opacity|o=i',
         'quiet|q',
         'verbose|v',
         'version',
@@ -272,20 +279,4 @@ my $webify = WebifyIMG->new($webify_cfg, $debug);
 my $image_set = WebifyIMG::ImageSet->new($webify, @images);
 
 # call the function to do the actual work
-&{$operation->{function}};
-
-#
-# Functions to implement the operations
-#
-
-# frame
-sub _frame{
-    $image_set->frame_simple(\%options);
-    
-    # to keep perlcritic happy
-    return 1;
-}
-
-#
-# Utility Functions
-#
+&{$operation->{function}}($image_set, \%options);

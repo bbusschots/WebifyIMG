@@ -95,15 +95,41 @@ sub add_images{
 
 #####-SUB-######################################################################
 # Type       : INSTANCE
-# Purpose    : Add a simple coloured frame to the images in this set.
+# Purpose    : Add a simple coloured border to the images in this set.
 # Returns    : self (to allow chaining of operations)
 # Arguments  : OPTIONAL - a hashref with options
 # Throws     : Croaks on invalid arguments
-# See Also   : Valid options and defaults defined by WebifyIMG::frame_simple()
-sub frame_simple{
+# See Also   : Valid options and defaults defined by WebifyIMG::add_borer()
+sub add_border{
     my $self = shift;
     my $opts = shift;
-    return $self->_process(\&WebifyIMG::frame_simple, $opts);
+    return $self->_process(\&WebifyIMG::add_border, $opts);
+}
+
+#####-SUB-######################################################################
+# Type       : INSTANCE
+# Purpose    : Insert license icon into lower-left of the images in this set.
+# Returns    : self (to allow chaining of operations)
+# Arguments  : OPTIONAL - a hashref with options
+# Throws     : Croaks on invalid arguments
+# See Also   : Valid options and defaults defined by WebifyIMG::insert_license_icon()
+sub insert_license_icon{
+    my $self = shift;
+    my $opts = shift;
+    return $self->_process(\&WebifyIMG::insert_license_icon, $opts);
+}
+
+#####-SUB-######################################################################
+# Type       : INSTANCE
+# Purpose    : Insert URL into lower-right of the images in this set.
+# Returns    : self (to allow chaining of operations)
+# Arguments  : OPTIONAL - a hashref with options
+# Throws     : Croaks on invalid arguments
+# See Also   : Valid options and defaults defined by WebifyIMG::insert_url()
+sub insert_url{
+    my $self = shift;
+    my $opts = shift;
+    return $self->_process(\&WebifyIMG::insert_url, $opts);
 }
 
 #
