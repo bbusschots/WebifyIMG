@@ -6,9 +6,10 @@ use Carp;
 use Config::Simple; # from CPAN - for reading config files
 use IO::CaptureOutput 'capture_exec'; # from CPAN - for executing shell commands
 use String::ShellQuote; # from CPAN - for preparing strings for use in a shell
+# use Data::Dumper; # TEMP FOR DEBUGGING
 
 # version info
-use version; our $VERSION = qv('0.1_3');
+use version; our $VERSION = qv('0.1_4');
 
 #
 # CONSTANTS
@@ -133,17 +134,17 @@ sub load{
 
 #####-SUB-######################################################################
 # Type       : INSTANCE
-# Purpose    : Return the full path to the mogrify command (based on
+# Purpose    : Return the full path to the composite command (based on
 #              imagemagick_bin_path config option).
-# Returns    : The path to mogrify as a string
+# Returns    : The path to convert as a string
 # Arguments  : NONE
 # Throws     : Croaks on invalid args
-sub bin_mogrify{
+sub bin_composite{
     my $self = shift;
     unless($self && $self->isa($_CLASS)){
         croak((caller 0)[3].'() - invalid arguments');
     }
-    return $self->{imagemagick_bin_path}.'mogrify';
+    return $self->{imagemagick_bin_path}.'composite';
 }
 
 #####-SUB-######################################################################
@@ -163,18 +164,76 @@ sub bin_convert{
 
 #####-SUB-######################################################################
 # Type       : INSTANCE
-# Purpose    : Return the full path to the composite command (based on
+# Purpose    : Return the full path to the identify command (based on
 #              imagemagick_bin_path config option).
 # Returns    : The path to convert as a string
 # Arguments  : NONE
 # Throws     : Croaks on invalid args
-sub bin_composite{
+sub bin_identify{
     my $self = shift;
     unless($self && $self->isa($_CLASS)){
         croak((caller 0)[3].'() - invalid arguments');
     }
-    return $self->{imagemagick_bin_path}.'composite';
+    return $self->{imagemagick_bin_path}.'identify';
 }
+
+#####-SUB-######################################################################
+# Type       : INSTANCE
+# Purpose    : Return the full path to the mogrify command (based on
+#              imagemagick_bin_path config option).
+# Returns    : The path to mogrify as a string
+# Arguments  : NONE
+# Throws     : Croaks on invalid args
+sub bin_mogrify{
+    my $self = shift;
+    unless($self && $self->isa($_CLASS)){
+        croak((caller 0)[3].'() - invalid arguments');
+    }
+    return $self->{imagemagick_bin_path}.'mogrify';
+}
+
+#
+# Image Querying Functions
+#
+
+#####-SUB-######################################################################
+# Type       : INSTANCE
+# Purpose    : Get the width and height of an image in pixels
+# Returns    : a hashref indexed by width and height
+# Arguments  : The image to get the dimensions of
+# Throws     : Croaks on invalid args or if no height was returned
+sub image_dimensions{
+    my $self = shift;
+    my $image = shift;
+    
+    # check we have valid args
+    unless($self && $self->isa($_CLASS) && $image){
+        croak((caller 0)[3].'() - invalid arguments');
+    }
+    
+    # prepare the arguments for use in the shell
+    my $image_q = shell_quote($image);
+    
+    # shell out to ImageMagick
+    my $ans = q{}; # an empty string
+    $ans = $self->_exec($self->bin_identify().q{ -format '%wx%h' }.$image_q, {stdout => 1, force => 1, croak => 1, quiet => 1});
+    chomp $ans;
+    $self->_debug("$image: raw dimensions=$ans");
+    
+    # extract the data and return if we can
+    if($ans =~ m/^(\d+)x(\d+)$/sx){
+        $self->_debug("$image: width=$1, height=$2");
+        return {
+            width => $1,
+            height => $2,
+        }
+    }
+    
+    # if we got here something has gone wrong
+    croak((caller 0)[3].' - received invalid answer from '.$self->bin_identify());
+}
+
+
 
 #
 # Image processing functions
@@ -271,6 +330,55 @@ sub insert_license_icon{
 
 #####-SUB-######################################################################
 # Type       : INSTANCE
+# Purpose    : Insert a partially transparent black strip over the bottom of
+#              an image.
+# Returns    : 1 if the operation was successful, 0 otherwise
+# Arguments  : 1) the path to the image to insert the strip into
+#              2) OPTIONAL - a hashref of options:
+#                 opacity - the opacity of the strip text as an integer
+#                            percentage (default 50)
+# Throws     : Croaks on invalid args
+# Notes      : TO DO - find a nice way to take an RGB colour as an argument
+sub insert_strip{
+    my $self = shift;
+    my $image = shift;
+    my $opts = shift;
+    
+    # validate args
+    unless($self && $self->isa($_CLASS) && $image){
+        croak((caller 0)[3].'() - invalid arguments');
+    }
+    
+    # init options to defaults
+    my $opacity = 50;
+    
+    # override with any valid passed options
+    if($opts->{opacity} && $opts->{opacity} =~ m/^\d+$/sx && $opts->{opacity} <= 100){
+        $opacity = $opts->{opacity};
+    }
+    # TO DO - find a way to nicely take RGB colour input
+    
+    # calculate the geometry of the strip
+    my $dim = $self->image_dimensions($image);
+    my $rectangle = 'rectangle 0,'.($dim->{height} - 25)." $dim->{width},$dim->{height}";
+    
+    # prepare the arguments for use in the shell
+    my $opacity_d = $opacity/100; # convert to a decimal
+    my $image_q = shell_quote($image);
+    
+    # shell out to ImageMagick
+    if($self->_exec($self->bin_mogrify().qq{ -fill 'rgba(0, 0, 0, $opacity_d)' -draw '$rectangle' $image_q})){
+        $self->_report("$image: inserted translucent strip (opacity=${opacity}%)");
+        return 1;
+    }
+    
+    # if we get here we failed to insert the icon
+    $self->_warn("$image: failed to insert translucent strip");
+    return 0;
+}
+
+#####-SUB-######################################################################
+# Type       : INSTANCE
 # Purpose    : Insert URL in white into the lower-right of the given image
 # Returns    : 1 if the operation was successful, 0 otherwise
 # Arguments  : 1) the path to the image to insert the URL into
@@ -322,12 +430,20 @@ sub insert_url{
 #####-SUB-######################################################################
 # Type       : INSTANCE (PRIVATE)
 # Purpose    : to execute a shell command - anything to STDOUT gets printed
-# Returns    : 1 if successfull, 0 otherwise
-# Arguments  : the string to execute
+# Returns    : 1 if successfull, 0 otherwise, unless option stdout passed, in
+#              which case the content of stdout is returned.
+# Arguments  : 1) the string to execute
+#              2) OPTIONAL - an options hashref indexed by:
+#                 croak   - do croak unless success
+#                 default - what to return when debugging with stdout set
+#                 force   - execution even in debug mode
+#                 quiet   - do not print stdout
+#                 stdout  - return stdout rather than 1 or 0
 # Throws     : Croaks on invalid args, carps if anything written to STDERR
 sub _exec{
     my $self = shift;
     my $command = shift;
+    my $opts = shift;
     
     # validate args
     unless($self && $self->isa($_CLASS) && $command){
@@ -335,8 +451,11 @@ sub _exec{
     }
     
     # if we're debugging, just print the command that would be executed, and return success
-    if ($self->{debug}) {
+    if ($self->{debug} && !($opts && $opts->{force})) {
         $self->_debug("would execute: $command");
+        if($opts && $opts->{stdout} && defined $opts->{default}){
+            return $opts->{default};
+        }
         return 1;
     }
     
@@ -344,13 +463,18 @@ sub _exec{
     my ($stdout, $stderr, $success, $exit_code) = capture_exec($command);
     
     # if anything was written to stdout, print it
-    if ($stdout) {
-        print $stdout;
+    unless($opts && $opts->{quiet}){
+        print $stdout if $stdout;
     }
     
     # if anything was written to STDERR, carp about it
     if ($stderr) {
         carp((caller 0)[3]."() - $stderr");
+    }
+    
+    # if in stdout mode, return stdout
+    if($opts && $opts->{stdout}){
+        return $stdout;
     }
     
     # return success or failure

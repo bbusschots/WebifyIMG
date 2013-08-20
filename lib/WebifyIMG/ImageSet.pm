@@ -5,7 +5,7 @@ use warnings;
 use Carp;
 
 # version info
-use version; our $VERSION = qv('0.1_2');
+use version; our $VERSION = qv('0.1_3');
 
 #
 # CONSTANTS
@@ -117,6 +117,20 @@ sub insert_license_icon{
     my $self = shift;
     my $opts = shift;
     return $self->_process(\&WebifyIMG::insert_license_icon, $opts);
+}
+
+#####-SUB-######################################################################
+# Type       : INSTANCE
+# Purpose    : Insert a translucent strip along the bottom of the images in
+#              this set.
+# Returns    : self (to allow chaining of operations)
+# Arguments  : OPTIONAL - a hashref with options
+# Throws     : Croaks on invalid arguments
+# See Also   : Valid options and defaults defined by WebifyIMG::insert_strip()
+sub insert_strip{
+    my $self = shift;
+    my $opts = shift;
+    return $self->_process(\&WebifyIMG::insert_strip, $opts);
 }
 
 #####-SUB-######################################################################

@@ -10,7 +10,7 @@ use WebifyIMG;
 use WebifyIMG::ImageSet;
 
 # version info
-use version; our $VERSION = qv('0.1_4');
+use version; our $VERSION = qv('0.1_5');
 
 my $description = <<'ENDDESC_SHORT';
 ================================================================================
@@ -49,10 +49,12 @@ Other Flags:
 ============
  Some operations support additions flags (to see what operation supports
  what flags use --list). The following flags are possible:
- -b, --border       The width of a border in pixels (must be integer)
- -c, --colour       Specify a colour in some format accepted by ImageMagick.
+     --bgcolour     A vaild ImageMagick colour to use for background elements.
+     --bgcolor      Alias for --bgcolour for Americans :)
+ -b, --border       The width of a border in pixels (must be integer).
+ -c, --colour       A valid ImageMagick colour for use for foreground elements.
      --color        Alias for --colour for Americans :)
- -o, --opacity      The percentage opacity (as an integer) of the inserted item
+ -o, --opacity      The percentage opacity (as an integer) of the inserted item.
 
 Returns Codes:
 ==============
@@ -65,6 +67,7 @@ my $description_extended = $description.$description_extra;
 #
 # Assemble the list of valid operations
 #
+## no critic (ProhibitLongChainsOfMethodCalls);
 my $OPERATIONS = {
     frame_simple => {
         min_images => 1,
@@ -77,16 +80,32 @@ my $OPERATIONS = {
         function => sub{
             my $images = shift;
             my $opts = shift;
-            $images->add_border($opts)->insert_license_icon($opts)->insert_url($opts);
+            $images->insert_license_icon($opts)->insert_url($opts)->add_border($opts);
+        },
+    },
+    frame_credit_strip => {
+        min_images => 1,
+        options => {
+            colour => '#999999',
+            border => 1,
+            opacity => 50,
+        },
+        description => 'Inserts a translucent black strip along the bottom of the image, then adds the URL & license icon, and finally adds a border (defaults to 1px #999999 border and semi-transparent strip, URL & icon)',
+        function => sub{
+            my $images = shift;
+            my $opts = shift;
+            $images->insert_strip($opts)->insert_license_icon($opts)->insert_url($opts)->add_border($opts);
         },
     },
 };
+## use critic
 
 #
 # Process and Validate Arguments
 #
 my %options; # hash to store commandline flags
 unless(GetOptions(\%options,
+        'bgcolour|bgcolor=s',
         'border|b=i',
         'colour|color|c=s',
         'debug|d',
