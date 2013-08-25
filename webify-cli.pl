@@ -10,7 +10,7 @@ use WebifyIMG;
 use WebifyIMG::ImageSet;
 
 # version info
-use version; our $VERSION = qv('0.1_5');
+use version; our $VERSION = qv('1.0');
 
 my $description = <<'ENDDESC_SHORT';
 ================================================================================
@@ -55,6 +55,10 @@ Other Flags:
  -c, --colour       A valid ImageMagick colour for use for foreground elements.
      --color        Alias for --colour for Americans :)
  -o, --opacity      The percentage opacity (as an integer) of the inserted item.
+     --orientation  either 'vertical' or 'horizontal'
+     --tcolour      A valid ImageMagick colour to use for text.
+     --tcolor       Alias for --tcolour for Americans :)
+ -t, --title        A title to insert into images.
 
 Returns Codes:
 ==============
@@ -69,6 +73,22 @@ my $description_extended = $description.$description_extra;
 #
 ## no critic (ProhibitLongChainsOfMethodCalls);
 my $OPERATIONS = {
+    frame_bars => {
+        min_images => 1,
+        options => {
+            orientation => 'horizontal',
+            title => q{},
+            bgcolour => '#000000',
+            colour => '#ffffff',
+            tcolour => '#cccccc',
+        },
+        description => 'Black bars (horizontal or vertical), URL & license icon, and optionally a title (defaults horizontal with no title)',
+        function => sub{
+            my $images = shift;
+            my $opts = shift;
+            $images->frame_bars($opts);
+        },
+    },
     frame_simple => {
         min_images => 1,
         options => {
@@ -113,7 +133,10 @@ unless(GetOptions(\%options,
         'help|h',
         'list|l',
         'opacity|o=i',
+        'orientation=s',
         'quiet|q',
+        'tcolour|tcolor=s',
+        'title|t=s',
         'verbose|v',
         'version',
 )){

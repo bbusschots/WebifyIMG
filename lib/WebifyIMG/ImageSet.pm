@@ -5,7 +5,7 @@ use warnings;
 use Carp;
 
 # version info
-use version; our $VERSION = qv('0.1_3');
+use version; our $VERSION = qv('1.0');
 
 #
 # CONSTANTS
@@ -95,15 +95,41 @@ sub add_images{
 
 #####-SUB-######################################################################
 # Type       : INSTANCE
+# Purpose    : Add vertical or horizontal bars to the images in this set.
+# Returns    : self (to allow chaining of operations)
+# Arguments  : OPTIONAL - a hashref with options
+# Throws     : Croaks on invalid arguments
+# See Also   : Valid options and defaults defined by WebifyIMG::add_bars()
+sub add_bars{
+    my $self = shift;
+    my $opts = shift;
+    return $self->_process(\&WebifyIMG::add_bars, $opts);
+}
+
+#####-SUB-######################################################################
+# Type       : INSTANCE
 # Purpose    : Add a simple coloured border to the images in this set.
 # Returns    : self (to allow chaining of operations)
 # Arguments  : OPTIONAL - a hashref with options
 # Throws     : Croaks on invalid arguments
-# See Also   : Valid options and defaults defined by WebifyIMG::add_borer()
+# See Also   : Valid options and defaults defined by WebifyIMG::add_border()
 sub add_border{
     my $self = shift;
     my $opts = shift;
     return $self->_process(\&WebifyIMG::add_border, $opts);
+}
+
+#####-SUB-######################################################################
+# Type       : INSTANCE
+# Purpose    : frame image with black bars and a title.
+# Returns    : self (to allow chaining of operations)
+# Arguments  : OPTIONAL - a hashref with options
+# Throws     : Croaks on invalid arguments
+# See Also   : Valid options and defaults defined by WebifyIMG::frame_bars()
+sub frame_bars{
+    my $self = shift;
+    my $opts = shift;
+    return $self->_process(\&WebifyIMG::frame_bars, $opts);
 }
 
 #####-SUB-######################################################################
