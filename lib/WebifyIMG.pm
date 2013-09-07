@@ -6,16 +6,33 @@ use Carp;
 use Config::Simple; # from CPAN - for reading config files
 use IO::CaptureOutput 'capture_exec'; # from CPAN - for executing shell commands
 use String::ShellQuote; # from CPAN - for preparing strings for use in a shell
+use File::Basename;
+use File::Spec;
 # use Data::Dumper; # TEMP FOR DEBUGGING
 
 # version info
-use version; our $VERSION = qv('1.0');
+use version; our $VERSION = qv('1.1_01');
 
 #
 # CONSTANTS
 #
-our $_DEFAULT_INI_LOCATION = $ENV{HOME}.'/.WebifyIMG/WebifyIMG.cfg';
+
+# utility constants
 my $_CLASS = 'WebifyIMG';
+
+# calculate base-path for the install
+my $_mod_path = __FILE__;
+print "TEMP DEBUG - modpath = $_mod_path\n";
+my $_mod_dir = (fileparse($_mod_path))[1];
+print "TEMP DEBUG - moddir = $_mod_dir\n";
+my @_BASE_PATH_PARTS = File::Spec->splitdir($_mod_dir);
+pop @_BASE_PATH_PARTS; # pop to strip off lib dir from end of path
+our $_INSTALL_BASE_PATH = File::Spec->catdir(@_BASE_PATH_PARTS);
+
+# config files
+my $_CONFIG_FILENAME = 'WebifyIMG.cfg';
+our $_GLOBAL_INI_PATH = File::Spec->catfile(@_BASE_PATH_PARTS, $_CONFIG_FILENAME);
+our $_USER_INI_PATH   = File::Spec->catfile(File::Spec->splitdir($ENV{HOME}), $_CONFIG_FILENAME);
 
 #####-SUB-######################################################################
 # Type       : CONSTRUCTOR (CLASS FUNCTION)
@@ -28,9 +45,11 @@ my $_CLASS = 'WebifyIMG';
 #                 debug mode.
 # Throws     : Carps in the case of file IO errors or invalid arguments
 # Notes      : All configuration options are initialised with their default
-#              values, then any values present in ~/.WebifyIMG/WebifyIMG.ini
-#              override the default values, and then finally the values in the
-#              hashref or specified file override any ecisting values.
+#              values, then any values present in $_DEFAULT_GLOBAL_INI_PATH
+#              override the default values, then any values present in
+#              $_DEFAULT_USER_INI_PATH override the existing values, and then
+#              finally the values in the hashref or specified file override the
+#              existing values to assenble the final used configuration.
 # See Also   :
 sub new{
     my $class = shift;
@@ -44,6 +63,10 @@ sub new{
 
     # create the instance with defaults
     my $instance = {
+        _INSTALL_BASE_PATH => $_INSTALL_BASE_PATH,
+        _CONFIG_FILENAME => $_CONFIG_FILENAME,
+        _GLOBAL_INI_PATH => $_GLOBAL_INI_PATH,
+        _USER_INI_PATH => $_USER_INI_PATH,
         imagemagick_bin_path => '/opt/local/bin/',
         font_caps => $ENV{HOME}.'/.WebifyIMG/capsFont.ttf',
         font_cursive => $ENV{HOME}.'/.WebifyIMG/cursiveFont.ttf',
@@ -55,12 +78,20 @@ sub new{
     }
     bless $instance, $class;
     
-    # load config values from default ini file if it exists
-    if(-f $_DEFAULT_INI_LOCATION){
-        $instance->_debug("$_DEFAULT_INI_LOCATION found - loading ...");
-        $instance->load($_DEFAULT_INI_LOCATION);
+    # load config values from the global config file if it exists
+    if(-f $_GLOBAL_INI_PATH){
+        $instance->_debug("global config file found ($_GLOBAL_INI_PATH) - loading ...");
+        $instance->load($_GLOBAL_INI_PATH);
     }else{
-        $instance->_debug("$_DEFAULT_INI_LOCATION not found");
+        $instance->_debug("no global config file found at $_GLOBAL_INI_PATH");
+    }
+    
+    # load config values from the user config file if it exists
+    if(-f $_USER_INI_PATH){
+        $instance->_debug("user config file found ($_USER_INI_PATH) - loading ...");
+        $instance->load($_USER_INI_PATH);
+    }else{
+        $instance->_debug("no user config file found at $_USER_INI_PATH");
     }
     
     # load config values from passed config (if one was passed)
